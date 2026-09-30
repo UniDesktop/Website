@@ -16,6 +16,15 @@ with Uda() as uda:
 uda.notify('构建完成', '所有测试均通过。');
 ```
 
+## The four parameters
+
+| Parameter | Meaning |
+|---|---|
+| `title` | single-line title |
+| `body` | multi-line detail; may be an empty string |
+| `icon` | icon path or URI; may be an empty string |
+| `actions` | a `{key: label}` map of buttons; see below |
+
 ## The fields
 
 | Field | Meaning |
@@ -58,6 +67,14 @@ Only the *syntax* is decided — the file's existence is deliberately not checke
 
 `critical` is delivered immediately and may override the screen lock where the platform allows it. `low` suppresses or minimises the card. On Linux the value travels as the `urgency` hint; on Windows it selects the toast's audio and duration.
 
+## Cross-platform comparison
+
+| Platform | Action buttons | Source line |
+|---|---|---|
+| Linux (any DE) | ✅ full support | the caller's `app_name` |
+| Windows, unpackaged host | ⚠️ degrades to read-only text | the AUMID registered from the caller's `app_name` |
+| Windows, MSIX-packaged host | ✅ available (the host registers its own activator) | the package identity |
+
 ## Windows limitations
 
 - **Action buttons.** Toast buttons require the `actions` content plus an activated handler that only a packaged app can register, so `Notification::actions` is accepted for trait parity but is not surfaced as buttons in an unpackaged host — the notification degrades to a read-only text card.
@@ -66,7 +83,34 @@ Only the *syntax* is decided — the file's existence is deliberately not checke
 
 The full protocol mapping, including package identity and action-button constraints, is in `docs/internals/notification_specs.md`.
 
+## A complete example
+
+```python
+import sys
+from pathlib import Path
+
+from uda import Uda
+
+APP_ICON = Path(__file__).parent.parent / "icons" / "UniDesktop_3D_transparent_mini.png"
+
+def main() -> int:
+    if not APP_ICON.is_file():
+        print(f"icon not found: {APP_ICON}", file=sys.stderr)
+        return 1
+
+    with Uda() as uda:
+        uda.notify(
+            title="A greeting from UDA",
+            body="This is a system notification sent through the UniDesktop API.",
+            icon=str(APP_ICON),
+            actions={"open": "View details", "later": "Remind me later"},
+            app_name="UDA Notification Demo",
+        )
+    return 0
+```
+
 ## See also
 
 - [Troubleshooting](/en/guides/troubleshooting/#notifications) — when no toast appears
 - [C-ABI: uda_notify](/en/reference/c-abi/#notifications) — the flat parameter list
+- [Platform support](/en/reference/platform-support/) — the per-desktop differences

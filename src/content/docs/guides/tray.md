@@ -3,7 +3,7 @@ title: 系统托盘
 description: 托盘图标与右键菜单的完整生命周期、线程模型与清理约定。
 ---
 
-## 最小可用示例
+## 最小示例
 
 ```python
 from uda import Uda
@@ -38,7 +38,7 @@ icon.destroy();
 
 ## 菜单模型
 
-跨平台统一，两者能力一致：
+跨平台统一，两侧能力一致：
 
 | 行类型 | Python | Node.js |
 |--------|--------|---------|
@@ -82,7 +82,9 @@ Windows 后端的托盘图标由一条专用工作线程驱动（自建消息泵
 - 长时间计算。
 :::
 
-宿主的事件循环永不被劫持——这是 v0.2.0 托盘模块的设计前提。
+:::note[设计前提]
+宿主的事件循环不被占用。托盘模块由此前提设计。
+:::
 
 ## 生命周期：stop / wait / destroy
 
@@ -121,8 +123,16 @@ icon.visible = False     # 隐藏但不注销
 icon.visible = True      # 恢复
 ```
 
-隐藏不是销毁：句柄仍有效，可随时恢复。
+:::note[隐藏与销毁的区别]
+隐藏后句柄仍然有效，可随时恢复显示；销毁才会从托盘注销并释放句柄。
+:::
 
 ## 清理
 
 `TrayIcon` 与 `TrayMenu` 都实现了 `Drop` / `Symbol.dispose`，退出 `with` 块时自动注销；忘记释放时 `__del__` / `dispose` 会兜底。`Uda.release_all()` 可一次性释放本对象持有的全部托盘资源与常亮锁。
+
+## 相关文档
+
+- [StatusNotifierItem（SNI）](/internals/protocols/statusnotifieritem/)——Linux 侧协议，含 `IconPixmap` 字节序
+- [DBusMenu](/internals/protocols/dbusmenu/)——以整数 id 定位的菜单树
+- [Shell_NotifyIconW](/internals/protocols/notifyicon/)——Windows 侧实现

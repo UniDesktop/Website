@@ -3,15 +3,29 @@ title: Wallpaper
 description: Setting and reading the desktop background with fill modes, multi-monitor targeting and dark/light pairing.
 ---
 
+## Reading the current wallpaper
+
+```python
+from uda import Uda
+
+with Uda() as uda:
+    path = uda.wallpaper          # property read; may be None
+
+    if path:
+        print("current wallpaper:", path)
+    else:
+        print("not set, or the platform cannot read it")
+```
+
 ## Setting a wallpaper
 
 ```python
 from uda import Uda, FillMode
 
 with Uda() as uda:
-    uda.wallpaper = "~/Pictures/a.png"                    # defaults to fill
-    uda.set_wallpaper("b.png", FillMode.FIT)              # explicit mode
-    print(uda.wallpaper)                                  # the configured path, or None
+    uda.set_wallpaper("~/Pictures/mountains.jpg", FillMode.FILL)
+    # or by property assignment (defaults to FILL)
+    uda.wallpaper = "/usr/share/backgrounds/gnome/adwaita-l.jpg"
 ```
 
 ```javascript
@@ -34,7 +48,7 @@ console.log(uda.wallpaper);
 
 GNOME keeps two values — `picture-uri` and `picture-uri-dark` — so the background can follow the system colour scheme. UDA writes both when the backend supports it, falling back to a single value otherwise.
 
-Check `Capability::FOLLOW_SYSTEM_THEME` or the backend's own support level before assuming the pairing took.
+The pairing is a GNOME-backend behaviour. It is not covered by a dedicated capability bit — `Capability::SET_WALLPAPER` and `Capability::GET_WALLPAPER` are what the wallpaper backend advertises — so do not gate the dark/light pairing on a capability query.
 
 ## Multi-monitor
 
@@ -42,28 +56,28 @@ Where the backend exposes per-monitor state (GNOME monitors via the portal, KDE 
 
 ## Per-desktop backends
 
-Tier 1 tries the XDG Desktop Portal first, then native DE IPC, then CLI tools, then a typed error:
+The wallpaper backend does **not** use the XDG Desktop Portal: `org.freedesktop.portal.Wallpaper` exists but is not called. It selects an implementation per desktop instead:
 
-| Desktop | Tier 1 | Tier 2 | Tier 3 |
-|---|---|---|---|
-| GNOME 42+ | Portal background | GSettings `picture-uri` | — |
-| KDE Plasma 5 / 6 | — | `org.kde.plasmashell` → `/PlasmaShell` → `evaluateScript` | — |
-| Hyprland | — | IPC socket → `hyprpaper` | `swww` |
-| Sway | — | IPC socket | `swww` |
-| Generic X11 | — | — | `feh` → `nitrogen` |
-| Windows | — | `SystemParametersInfoW(SPI_SETDESKWALLPAPER)` | — |
+| Desktop | Mechanism |
+|---|---|
+| GNOME 42+ | the `gsettings` CLI, writing `org.gnome.desktop.background` `picture-uri` and `picture-uri-dark` as a pair |
+| KDE Plasma 5 / 6 | D-Bus `org.kde.plasmashell` → `/PlasmaShell` → `evaluateScript` |
+| Hyprland | the `hyprpaper` CLI, falling back to `swww` |
+| Sway | the `swww` CLI |
+| Generic X11 | the `feh` CLI, falling back to `nitrogen` |
+| Windows | `SystemParametersInfoW(SPI_SETDESKWALLPAPER)` |
+
+When `gsettings` is missing or fails on GNOME, the backend falls through to the CLI chain. The per-desktop probe order and the exact argument vectors are in [wallpaper specifications](https://github.com/UniDesktop/SDK/blob/develop/docs/internals/wallpaper_specs.md).
 
 Reading the wallpaper goes through the same chain in reverse and reports what is *configured*, which may differ from what is currently rendered.
 
 ## Errors
 
-| Outcome | Error |
+| Symptom | Return |
 |---|---|
-| No portal, no DE IPC, no CLI tool | `UdaError::Unsupported` |
-| The file is missing or unreadable | `UDA_ERR_IO` |
-| An empty path, or an unknown fill mode | `UDA_ERR_INVALID_ARGUMENT` |
-
-Reading returns `None` when no wallpaper is configured, or when the platform cannot report one — that is not a failure, so check the returned value rather than the status.
+| the file is unreadable | `UDA_ERR_IO` |
+| every fallback tier is unavailable | `UdaError::Unsupported`, whose message lists the tools already tried |
+| the platform cannot read the value | `uda.wallpaper` returns `None` |
 
 ## See also
 

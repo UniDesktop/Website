@@ -29,7 +29,26 @@ jobs:
         with:
           package-manager: npm
           node-version: 22
-        
+
+      # GitHub Pages used to run everything through Jekyll. A Jekyll build
+      # ignores files and directories whose name starts with `_`, which is
+      # exactly how Astro names its asset directory (`_astro/`) — the site then
+      # renders with no CSS and no scripts. An empty `.nojekyll` file at the
+      # root of the artifact tells Pages to serve the files as-is.
+      - name: Disable Jekyll processing
+        run: touch dist/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # Publishing the artifact explicitly (rather than letting
+      # `withastro/action` do it) makes `path` visible here, so the artifact
+      # always contains the Astro output root and nothing else.
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
   deploy:
     environment:
       name: github-pages

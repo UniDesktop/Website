@@ -13,7 +13,16 @@ with Uda() as uda:
     uda.notify("你好，桌面", "这是通过 UDA 发出的第一条系统通知。")
 ```
 
-离开 `with` 块时，SDK 会自动释放本对象持有的全部资源（常亮锁、托盘图标、菜单）。
+Node.js 侧：
+
+```javascript
+const { Uda } = require('./uda');
+const uda = new Uda();
+console.log(uda.theme);
+uda.dispose();
+```
+
+离开 `with` 块（或 Node.js 中调用 `dispose()`）时，SDK 会自动释放本对象持有的全部资源（常亮锁、托盘图标、菜单）。
 
 ## 逐行说明
 
@@ -49,7 +58,7 @@ Node.js 侧对应 `Symbol.dispose`，可用 `using` 声明：
 } // 离开作用域自动 dispose
 ```
 
-## 常见的三个第一次失败
+## 首次运行的常见失败
 
 | 现象 | 原因 | 处置 |
 |------|------|------|
@@ -57,10 +66,12 @@ Node.js 侧对应 `Symbol.dispose`，可用 `using` 声明：
 | `UdaError: Failed to connect to session bus` | 无 D-Bus 会话（例如纯 SSH 终端、systemd 用户会话未启动） | 在桌面会话内运行，或 `export DBUS_SESSION_BUS_ADDRESS=...` |
 | `UdaError: Feature not supported` | 当前平台/会话没有可用后端 | 查 `capabilities()` 得知缺哪一项，并给出友好提示而非崩溃 |
 
-第三项是**设计意图**而非缺陷：UDA 在任何功能不可用时返回类型化错误，让你的应用可以分流而不是直接崩掉。
+:::note[类型化错误属于设计行为]
+功能不可用时返回类型化错误是 UDA 的既定行为，而不是缺陷。应用可据此分流，而不是直接崩溃。
+:::
 
 ## 下一步
 
-- [平台支持矩阵](/zh-cn/reference/platform-support/)——先确认你的目标平台能做什么
-- [系统外观](/zh-cn/guides/appearance/)——深浅色与强调色
-- [C-ABI 参考](/zh-cn/reference/c-abi/)——完整函数表
+- [平台支持矩阵](/reference/platform-support/)——先确认你的目标平台能做什么
+- [系统外观](/guides/appearance/)——深浅色与强调色
+- [C-ABI 参考](/reference/c-abi/)——完整函数表

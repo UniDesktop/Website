@@ -14,9 +14,9 @@ XDG Desktop Portal 是 freedesktop 的标准沙箱化接口层。桌面环境自
 ## 固定端点
 
 ```text
-Bus      : Session Bus
-Dest     : org.freedesktop.portal.Desktop
-Path     : /org/freedesktop/desktop
+Bus       : Session Bus
+Dest      : org.freedesktop.portal.Desktop
+Path      : /org/freedesktop/portal/desktop
 Interfaces: org.freedesktop.portal.<Feature>
 ```
 
@@ -25,7 +25,8 @@ UDA 目前用到的接口：
 | 接口 | 用途 |
 |------|------|
 | `org.freedesktop.portal.Settings` | 深浅色（`Read("org.freedesktop.appearance", "color-scheme")`）、强调色 |
-| `org.freedesktop.portal.Wallpaper` | 壁纸设置 |
+
+这是 UDA 目前唯一调用的 Portal 接口。壁纸与防休眠虽然也有对应的 Portal 接口（`org.freedesktop.portal.Wallpaper` / `org.freedesktop.portal.Inhibit`），但后端并未使用它们：壁纸直接走 GNOME `gsettings`、KDE `plasmashell` 与 CLI 工具链，防休眠调用会话总线上的 `org.freedesktop.ScreenSaver.Inhibit`。各桌面的具体映射见[仓库内的 wallpaper_specs.md](https://github.com/UniDesktop/SDK/blob/develop/docs/internals/wallpaper_specs.md)。
 
 ## 深浅色的取值
 
@@ -38,9 +39,9 @@ Read("org.freedesktop.appearance", "color-scheme")
 
 变更通过 `SettingChanged(namespace, key, value)` 信号通知。UDA 当前只读快照，尚未暴露监听。
 
-## 探测：存在 ≠ 可用
+## 探测：服务名存在不等于接口可用
 
-Portal 只在**至少一个后端接口已导出**时才算可用。正确做法是尝试绑定目标接口，而不是只查 `org.freedesktop.portal.Desktop` 是否在总线上——很多桌面导出了服务名却没实现 Settings。
+Portal 仅在**至少一个后端接口已导出**时视为可用。正确做法是尝试构造目标接口的 proxy，而不是只检查 `org.freedesktop.portal.Desktop` 是否在总线上：部分桌面导出了服务名，但未实现 Settings 接口。
 
 ```rust
 // 直接构造 proxy；失败即视为该接口不可用，落到 Tier 2
@@ -59,8 +60,10 @@ let proxy = match Proxy::new(&connection, ".../Settings", "...Desktop", "...Sett
 | XFCE | 部分 |
 | Hyprland / Sway | 通常**没有** → 直接走 Tier 2 |
 
-因此 Portal 优先并不意味着"Portal 总是答案"。这正是 AGENTS.md Principle 2 要求一条完整降级链的原因：任何单层机制在碎片化的 Linux 桌面上都不足以覆盖。
+:::note[Portal 优先不等于 Portal 总能满足]
+单层机制无法覆盖碎片化的 Linux 桌面。AGENTS.md Principle 2 因此要求完整的四级降级链。
+:::
 
 ## 授权
 
-Portal 的授权由实现方处理（通常弹出系统对话框）。被用户拒绝时调用返回错误，UDA 映射为 `UdaError::NotSupported` 并带上原始错误名——调用方据此提示用户，而不是当成代码 bug。
+Portal 的授权由实现方处理（通常弹出系统对话框）。用户拒绝授权时调用返回错误，UDA 将其映射为 `UdaError::NotSupported` 并附带原始错误名，调用方可据此提示用户授权，而不是作为代码缺陷处理。

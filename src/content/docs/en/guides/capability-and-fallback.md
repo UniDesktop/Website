@@ -1,21 +1,25 @@
 ---
 title: Capability and fallback
-description: The SupportLevel tri-state, the four-tier fallback chain, and how to query capabilities from a host.
+description: The `SupportLevel` tri-state, the four-tier fallback chain, and how to query capabilities from a host.
 ---
 
-## Why query capabilities at all
+## Capability querying
 
-Linux desktops are heavily fragmented, and Wayland strictly restricts some capabilities outright. Code that assumes a feature exists crashes on the next machine.
+Linux desktops are heavily fragmented, and Wayland strictly restricts some capabilities outright. Code that assumes a feature exists fails on the next machine.
 
-UDA's answer: **every feature reports how well it can do something**, so the application branches *before* it breaks.
+UDA's contract: **every feature reports its support level**, so the application branches *before* calling.
 
-## SupportLevel tri-state
+## `SupportLevel` tri-state
 
-| Level | Meaning | What your app should do |
+`SupportLevel` is defined in `uda_core::capability` with three variants:
+
+| Variant | Meaning | What your app should do |
 |---|---|---|
 | `SupportLevel::Full` | fully supported | use it normally |
-| `SupportLevel::Restricted(reason)` | partially supported, with a reason | degrade the UI or tell the user, but keep it usable |
-| `SupportLevel::Unsupported` | not available at all | hide the entry, or explain why |
+| `SupportLevel::Partial` | available in a degraded form (a limited set of monitors, modes or formats) | use it, but do not promise the missing part to the user |
+| `SupportLevel::None` | not available | hide the entry, or explain why |
+
+`Partial` carries no reason string. When a backend needs to say *why*, it returns a typed `UdaError` at call time instead — the diagnostic text travels with the error, not with the capability level.
 
 ## Capability bit flags
 
@@ -51,36 +55,45 @@ Tier 4  Typed error              UdaError::Unsupported("...")
 
 When all three service tiers fail there is **no panic** and no bare `io::Error` — the caller gets a `UdaError::Unsupported` carrying a diagnosis.
 
-The real chain for wallpaper:
+The actual chain for wallpaper, which does not use the portal:
 
-| Desktop | Tier 1 | Tier 2 | Tier 3 |
-|---|---|---|---|
-| GNOME 42+ | Portal | GSettings `picture-uri` | — |
-| KDE Plasma | — | `org.kde.plasmashell` `evaluateScript` | — |
-| Hyprland | — | IPC socket → `hyprpaper` / `swww` | — |
-| Sway | — | IPC socket | `swww` |
-| Generic X11 | — | — | `feh` → `nitrogen` |
+| Desktop | Mechanism |
+|---|---|
+| GNOME 42+ | the `gsettings` CLI, writing `picture-uri` and `picture-uri-dark` as a pair |
+| KDE Plasma | D-Bus `org.kde.plasmashell` → `/PlasmaShell` → `evaluateScript` |
+| Hyprland | the `hyprpaper` CLI, falling back to `swww` |
+| Sway | the `swww` CLI |
+| Generic X11 | the `feh` CLI, falling back to `nitrogen` |
 
-## Querying from a host
+:::note[The general rule and this module's exception]
+The four tiers are the general rule from AGENTS.md Principle 2. Wallpaper is an exception to it: `org.freedesktop.portal.Wallpaper` exists but is not called, so that backend starts at Tier 2. Wake locks likewise use `org.freedesktop.ScreenSaver.Inhibit` rather than `org.freedesktop.portal.Inhibit`. Appearance detection is the only module that currently engages Tier 1, through `org.freedesktop.portal.Settings`.
+:::
+
+## Querying from a host application
 
 ```rust
+use uda_core::capability::SupportLevel;
+use uda_core::tray::{TrayFeature, TrayManager};
+
 let manager = uda_platform_linux::LinuxTrayManager::new();
 
 // Cheap, always answers.
-let level = TrayManager::support_level(&manager, TrayFeature::Tooltip);
+let level = manager.support_level(TrayFeature::Tooltip);
 
 match level {
     SupportLevel::Full => { /* draw the tooltip field */ }
-    SupportLevel::Restricted(reason) => { warn!("tooltip is {reason}") }
-    SupportLevel::Unsupported => { /* hide it */ }
+    SupportLevel::Partial => { warn!("tooltip is degraded on this backend") }
+    SupportLevel::None => { /* hide it */ }
 }
 ```
 
-`support_level` answers from the capability set the backend published at registration, so the value always describes *this* icon's environment. Before a backend publishes, the answer stays `Unsupported` — the honest default when no tray mechanism could be reached.
+`support_level` answers from the capability set the backend published at registration, so the value always describes *this* icon's environment. Before a backend publishes, the answer stays `SupportLevel::None` — the honest default when no tray mechanism could be reached.
 
-## One extra rule: `Partial` is reserved
+For features that are not tray-related, the same information is exposed per module: the notification backend has `capabilities()`, the session backend reports one bit per action, and the Python / Node.js SDKs surface the session bits directly.
 
-A backend publishes `Partial` only when it can genuinely do something degraded — Linux double-click synthesis, or a tooltip longer than the soft cap. An absent flag is a plain `None`, never a guess. That is what keeps "advertised" meaning "deliverable".
+## Rule: `Partial` is reserved
+
+A backend publishes `Partial` only when it can genuinely deliver a degraded behaviour — Linux double-click synthesis, or a tooltip longer than the soft cap. An absent flag is a plain `None`, never a guess. This keeps "advertised" equivalent to "deliverable".
 
 ## See also
 

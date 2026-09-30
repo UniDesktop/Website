@@ -33,7 +33,7 @@ A missing watcher is **not fatal** — the item stays exported, so a watcher tha
 | `Menu` | item → shell | the object path of the dbusmenu implementation |
 | `NewStatus` / `NewIcon` / `NewTitle` | item → shell (signal) | emitted only for the field that changed |
 
-## Icon encoding gotcha
+## Icon byte order
 
 `IconPixmap` is typed `a(iiay)` and documented as "ARGB32 rows", which in practice means **byte order B, G, R, A** — not A, R, G, B. Writing the channels as A, R, G, B swaps red and blue, so a red icon arrives blue.
 

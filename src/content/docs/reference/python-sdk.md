@@ -9,9 +9,14 @@ description: 零第三方依赖的 ctypes 封装：成员表、命名空间与�
 
 ```python
 from uda import Uda
+
+with Uda() as uda:                                  # 自动解析
+    ...
+with Uda(library_path="/opt/uda/libuda_ffi.so") as uda:   # 显式指定
+    ...
 ```
 
-库解析顺序：显式 `library_path` → `UDA_LIBRARY` 环境变量 → `cargo metadata` 报告的 target 目录。
+库解析顺序：显式 `library_path` 参数 → `UDA_LIBRARY` 环境变量 → `cargo metadata` 报告的 target 目录 → 仓库内常见构建目录 → 系统动态库搜索路径。
 
 ## 常量类
 
@@ -52,7 +57,7 @@ from uda import Uda
 | `send(command)` | 方法，接受指令名字符串或常量 |
 | `play()` / `pause()` / `play_pause()` / `next()` / `previous()` / `stop()` | 便捷方法 |
 
-`MediaTrack` 字段：`title`、`artists`（`list[str]`）、`album`、`duration_ms`。
+`MediaTrack` 字段：`title`、`artist`（`str`；播放器发布多位艺人时已用 `", "` 连接）、`album`、`duration_ms`、`position_ms`。
 
 ## 命名空间 `uda.session`
 
@@ -88,8 +93,8 @@ from uda import Uda
 
 | 成员 | 说明 |
 |------|------|
-| `add_text(label, callback)` | 文本项，回调无参 |
-| `add_checkbox(label, checked, callback)` | 复选框，回调接收点击后的新状态 |
+| `add_text(label, callback)` | 文本项，回调签名为 `(item_id, user_data) -> None` |
+| `add_checkbox(label, checked, callback)` | 复选框，回调签名为 `(item_id, checked, user_data) -> None`，接收点击后的新状态 |
 | `add_separator()` | 分隔线 |
 | `handle` | 句柄 |
 | `items` | 已添加的行（含分隔线），按顺序 |
@@ -97,6 +102,10 @@ from uda import Uda
 | `destroy()` | 销毁菜单句柄 |
 
 `TrayItem` 字段：`item_id`、`label`、`kind`、`checked`、`enabled`。
+
+图标可以是 `.png` 文件：SDK 读取文件后用内置的纯标准库 PNG 解码器解码并提交 RGBA——Linux 的 `StatusNotifierItem` 把 `Path` 解释为 freedesktop 图标**主题名**，直接传文件路径什么都看不到。图像在提交前会按最长边 32 px 降采样。
+
+回调运行在托盘工作线程上，必须尽快返回，且不能直接操作 UI——请转发到宿主自己的事件循环。
 
 ## 异常模型
 

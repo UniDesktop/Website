@@ -62,6 +62,15 @@ Three SMTC quirks worth knowing, because they cost hours when missed:
 2. **`TimeSpan` is in 100-nanosecond ticks.** A zero `Duration` means "unknown" (a live stream), and is reported as absent rather than `Some(0)`.
 3. **"No current session" arrives as an `Err`, not a null.** The *absence* of a player looks like a failure unless the caller reads it as a value — which is exactly why a machine with nothing playing answers `Ok(None)` / `Ok(Unknown)` and only commands raise `NotSupported`. This matches the Linux backend, where a session bus with no player name yields `None`.
 
+### MPRIS metadata type quirks (Linux)
+
+The MPRIS `Metadata` dictionary deviates from its own specification in practice:
+
+- `xesam:title` is specified as an array of strings, but some players (mostly early versions) send a single string. UDA accepts both.
+- `xesam:artist` behaves the same way.
+- `mpris:length` is in **microseconds**; UDA converts to milliseconds. `0` denotes a live stream rather than a zero-length track, and a negative value is treated as invalid.
+- A type mismatch is not reported as an error; the value degrades to empty.
+
 ## What counts as a failed command
 
 A player that refuses a command (pausing an already-paused stream, `Next` when the app disables the button) is still a **successful call**: the platform cannot distinguish "declined" from "done", and reporting an error would make a perfectly normal toggle look like a failure.

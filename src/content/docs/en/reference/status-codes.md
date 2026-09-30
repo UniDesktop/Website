@@ -52,9 +52,13 @@ The OS version query failed — `RtlGetVersion` on Windows, or the release-infor
 
 The wallpaper file is unreadable, an `xdg-*` tool failed to launch, or the D-Bus socket connection failed.
 
+### `UDA_ERR_INTERNAL`
+
+A backend returned an error that cannot be classified further — a WinRT call failure, or a `tokio` runtime that could not be created.
+
 ### `UDA_ERR_PANIC`
 
-A panic escaped from library code and was caught by the boundary. Every export runs inside `catch_unwind`, so a panic can never unwind across `extern "C"` — it becomes this status instead. Reaching it means a bug, and the message names the panic.
+A panic escaped from library code and was caught by the boundary. Every export runs inside `catch_unwind`, so a panic can never unwind across `extern "C"` — it becomes this status instead. Reaching it means a bug, and the message names the panic. Please report it with the output of `uda_last_error_message()`.
 
 ## Reading the diagnostic
 
@@ -71,6 +75,41 @@ if (status != UDA_OK) {
 
 For a static, human-readable description of a code without a second round trip, use `uda_status_message(status)` — the returned pointer stays valid for the lifetime of the library and must **not** be freed.
 
+## Translating a code into text
+
+```c
+printf("%s\n", uda_status_message(status));
+```
+
+The returned pointer refers to a static string and must **not** be freed. It is also **not** the thread-local slot: it is the generic description of that status code and does not carry this failure's specific cause.
+
+## Mapping in the SDKs
+
+| Status | Python | Node.js |
+|---|---|---|
+| any non-zero value | throws `UdaError(status, message)` | throws an `Error` whose message contains the diagnostic |
+| `UDA_ERR_NOT_SUPPORTED` | `UdaError.status == -2` | the same, via the thrown message |
+
+Both SDKs read the diagnostic automatically and fold it into the exception:
+
+```python
+try:
+    uda.set_wallpaper("/not/a/real.png", FillMode.FIT)
+except UdaError as exc:
+    print(exc.status, exc)      # (-2, 'Feature not supported: ...')
+```
+
+```javascript
+try {
+  uda.setWallpaper('/nonexistent.png', 'fit');
+} catch (error) {
+  console.error(error.message);   // already contains the diagnostic
+}
+```
+
+Neither SDK treats "no player" or "the platform has no accent colour" as an exception — those return `None` / `null` on the corresponding API. Only a genuine failure takes the exception path.
+
 ## See also
 
 - [C-ABI reference](/en/reference/c-abi/) — the full function list and ownership rules
+- [Troubleshooting](/en/guides/troubleshooting/) — symptoms, causes and fixes

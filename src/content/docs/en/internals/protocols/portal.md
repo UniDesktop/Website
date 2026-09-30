@@ -3,28 +3,45 @@ title: XDG Desktop Portal
 description: "The Tier-1 interface every UDA Linux feature tries first: what it covers, and where it stops being enough."
 ---
 
-A D-Bus API (`org.freedesktop.portal.*`) that lets sandboxed and unsandboxed applications reach privileged desktop functions through the *desktop's own* consent UI. It is the first rung of the UDA fallback chain because it is the only interface that behaves identically across GNOME, KDE, and any compliant compositor.
+XDG Desktop Portal is freedesktop's standard sandboxed interface layer. The desktop environment implements it itself and applications call it over D-Bus, so a caller never needs to know whether GNOME or KDE is behind it. It is the **Tier 1** rung of UDA's fallback chain, because it is the only interface that behaves identically across GNOME, KDE and any compliant compositor.
 
-## Portal vs. native
+## Portal versus native IPC
 
 | | Portal | Native DE IPC |
 |---|---|---|
-| Consistency | One interface everywhere | One per desktop |
-| Consent | The desktop asks the user | Silent, if the session allows it |
-| Availability | Needs `xdg-desktop-portal` installed | Always present on that DE |
-| Latency | One extra daemon hop | Direct |
-| Richness | Lowest common denominator | Full DE feature set |
+| Consistency | one interface everywhere | one per desktop |
+| Consent | the desktop asks the user | silent, if the session allows it |
+| Availability | needs `xdg-desktop-portal` installed | always present on that DE |
+| Latency | one extra daemon hop | direct |
+| Richness | the lowest common denominator | the full DE feature set |
 
-UDA uses the portal where it exists and falls back to native IPC when it does not, which is why a feature can be `Full` on GNOME and `Restricted` on a bare WLR compositor.
+UDA uses the portal wherever it exists and falls back to native IPC where it does not.
+
+## Fixed endpoints
+
+```text
+Bus       : Session Bus
+Dest      : org.freedesktop.portal.Desktop
+Path      : /org/freedesktop/portal/desktop
+Interfaces: org.freedesktop.portal.<Feature>
+```
 
 ## Interfaces UDA consumes
 
 | Interface | Used for | Notes |
 |---|---|---|
-| `org.freedesktop.portal.Settings` | Appearance: `Read("org.freedesktop.appearance", "color-scheme")` | Also carries the accent-colour read on desktops that expose it |
-| `org.freedesktop.portal.Background` | Wallpaper: `SetWallpaper` with a `file://` URI | Requires a parent window handle on some backends |
-| `org.freedesktop.portal.Inhibit` | Wake locks: `Inhibit` / `UnInhibit` | Session-wide, not per-display |
-| `org.freedesktop.portal.Clipboard` | Clipboard (Phase 3) | Mainly relevant for remote-desktop sessions |
+| `org.freedesktop.portal.Settings` | Appearance: `Read("org.freedesktop.appearance", "color-scheme")`, and the accent colour on desktops that expose it | The only portal interface UDA currently calls |
+
+`color-scheme` takes three values:
+
+```text
+Read("org.freedesktop.appearance", "color-scheme")
+  0 = Default / Unknown
+  1 = Prefer Dark
+  2 = Prefer Light
+```
+
+Changes are announced through the `SettingChanged(namespace, key, value)` signal. UDA reads a snapshot only and does not expose a listener yet.
 
 ## Where the portal stops
 
@@ -32,8 +49,9 @@ The portal deliberately does **not** cover everything, and UDA goes around it ra
 
 - **System tray** has no portal interface. UDA implements SNI directly and registers with `org.kde.StatusNotifierWatcher`.
 - **Media control** has no portal. UDA speaks MPRIS v2 over the session bus.
-- **Session & power** have no portal interface for lock/logout/reboot; UDA uses `systemd-logind` and `org.freedesktop.ScreenSaver`, which is also what the portal itself would call underneath.
-- **Global shortcuts** only gained a portal (`org.freedesktop.portal.GlobalShortcuts`) recently, and many compositors still have no implementation — hence the X11 `XGrabKey` Tier 2.
+- **Session & power** have no portal interface for lock/logout/reboot; UDA uses `systemd-logind` and `org.freedesktop.ScreenSaver`.
+- **Wallpaper** has a portal interface (`org.freedesktop.portal.Wallpaper`) but UDA does not call it: the Linux wallpaper backend goes straight to GNOME `gsettings`, then KDE `plasmashell`, then the `hyprpaper` / `swww` / `feh` / `nitrogen` CLI tools. See [wallpaper specifications](https://github.com/UniDesktop/SDK/blob/develop/docs/internals/wallpaper_specs.md) for the per-desktop mapping.
+- **Wake locks** have a portal interface (`org.freedesktop.portal.Inhibit`), but the backend calls `org.freedesktop.ScreenSaver.Inhibit` on the session bus instead, because that service is present on every desktop that runs a screen saver.
 
 ## The consent dialog problem
 

@@ -53,6 +53,10 @@ OS 版本查询失败（Windows 上是 `RtlGetVersion`，Linux 上读发行版�
 
 后端返回了无法归类的错误，例如 WinRT 调用失败、`tokio` runtime 创建失败。
 
+:::note[Rust 侧的错误类型]
+相同的错误条件在 Rust 中以 [`UdaError`](https://docs.rs/uda-core) 变体呈现。状态码是类型化错误在 ABI 上的投影，两者始终一致。
+:::
+
 ### `UDA_ERR_PANIC`
 
 库内某处发生了 panic 并被 FFI 边界兜住。**这是 bug**——请带上 `uda_last_error_message()` 的输出提 issue。
@@ -70,7 +74,7 @@ if (status != UDA_OK) {
 
 槽位是线程本地的：只反映**该线程上最后一次**失败。多线程环境下请在失败后立即读取。
 
-Python / Node.js SDK 会自动读取并拼进异常：
+两个 SDK 都会自动读取诊断消息并拼进异常：
 
 ```python
 try:
@@ -103,3 +107,8 @@ printf("%s\n", uda_status_message(status));
 | `UDA_ERR_NOT_SUPPORTED` | `UdaError.status == -2` | 同上 |
 
 两个 SDK 都**不**把「没有播放器」或「平台无强调色」当异常——它们在对应的 API 上返回 `None` / `null`。只有真正的失败才走异常路径。
+
+## 相关文档
+
+- [C-ABI 参考](/reference/c-abi/)——完整函数表与所有权规则
+- [故障排查](/guides/troubleshooting/)——症状、原因与处置

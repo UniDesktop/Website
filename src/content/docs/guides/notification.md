@@ -37,6 +37,19 @@ uda.notify("构建成功", "共 12 个目标", icon="/home/me/Pictures/ok.png")
 请传绝对路径。UDA 不把相对路径解析到某个固定基准目录——进程工作目录变化会让同一份代码行为不同。
 :::
 
+## Windows 上的应用身份
+
+MSIX 打包的应用由包身份寻址。经典 Win32 进程没有包身份，因此无参的 `CreateToastNotifier()` 会以 `ELEMENT_NOT_FOUND` 失败，**toast 永远不会出现**——未打包的 `node script.js` 遇到的正是这种情况。
+
+UDA 用两步解决，且**两步都必需**：
+
+1. `CreateToastNotifierWithId(app_name)` 用显式 id 寻址 toast，而不是让 WinRT 从进程解析。这是未打包二进制真正能成功的调用。
+2. `SetCurrentProcessExplicitAppUserModelID(app_name)` 把同一个 id 记录到进程上（注册一次），使 shell 在决定 toast 显示位置时能够匹配。宿主已设置自有 AUMID 时会保留原值——覆盖它会破坏该宿主的激活路由。
+
+两步都不需要开始菜单快捷方式，因此普通的 `node script.js` 或 Python 解释器也能弹出原生 toast。`app_name` 留空则使用通用身份 `UniDesktop.Notification`。
+
+可用 `WindowsNotificationManager::availability()` 直接查询结果，它返回平台的 `NotificationSetting`：进程的通知被关闭时为 `DisabledForApplication`，完全没有身份时为 `NotSupported` 错误。
+
 ## 紧急级别与过期时间
 
 Rust trait 与 D-Bus 层支持 `Urgency`（Low / Normal / Critical）与 `expire_timeout`，但 **C-ABI 层的 `uda_notify` 使用默认值**：紧急度为 Normal，过期时间由系统决定。
@@ -51,7 +64,13 @@ Notification {
 }
 ```
 
-## 动作按钮的平台差异（重要）
+`critical` 会被立即投递，在平台允许时甚至可绕过锁屏；`low` 会抑制或最小化卡片。Linux 上该值作为 `urgency` hint 传递，Windows 上则决定 toast 的音频与时长。
+
+:::note[进度条]
+FreeDesktop 的进度概念在 toast 中没有直接对应物，UDA 选择明确忽略而非近似实现。
+:::
+
+## 动作按钮的平台差异
 
 :::danger[Windows 未打包环境：按钮不可见]
 toast 按钮要求 XML 内含 `actions` 内容，并且有一个**已注册的 COM 激活器**在用户点击时唤醒。该激活器依赖注册表中的 `CLSID` / `AppUserModelID` 关联，只有 MSIX 打包应用能可靠注册。
@@ -102,3 +121,9 @@ def main() -> int:
         )
     return 0
 ```
+
+## 相关文档
+
+- [故障排查](/guides/troubleshooting/#通知)——toast 不显示等问题的排查
+- [C-ABI 参考](/reference/c-abi/)——`uda_notify` 的完整签名与所有权规则
+- [平台支持矩阵](/reference/platform-support/)——通知按钮与来源显示的平台差异

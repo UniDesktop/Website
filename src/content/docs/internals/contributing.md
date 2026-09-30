@@ -51,7 +51,7 @@ pub enum UdaError {
 
 **日志**：用 `log` crate（`log::debug!` / `log::warn!`）。库 crate 里**禁止** `println!`。
 
-**注释**：解释"为什么"而不是"是什么"。特别是平台踩坑——把坑写进注释，下一个人才不会重踩。
+**注释**：说明设计原因（选择该方案的理由），而不是复述代码行为。平台相关的限制与例外应写入注释，避免后续重复排查。
 
 ## 测试
 
@@ -71,9 +71,11 @@ cargo check -p uda-platform-windows \
 ```
 
 :::caution[Windows crate 的测试在 Linux 上不运行]
-`uda-platform-windows` 是 `#![cfg(windows)]`，写在该 crate 里的 `#[test]` 在 Linux 上**编译为空**——等于没有人验证。
+`uda-platform-windows` 是 `#![cfg(windows)]`，写在该 crate 里的 `#[test]` 在 Linux 上编译为空，等同于无人验证。
 
-因此：**平台无关的逻辑（XML 构造、路径规范化、状态机、字节序换算）必须放在 `uda-core`**，只把真正调用 Win32/WinRT 的代码留在平台 crate。这条规则来自一次真实教训：Windows 的 toast 文档构造逻辑放在平台 crate 里，导致「文档被操作中心静默丢弃」这个 bug 在 CI 上无人发现。
+因此：**平台无关的逻辑（XML 构造、路径规范化、状态机、字节序换算）必须放在 `uda-core`**，只把真正调用 Win32/WinRT 的代码留在平台 crate。
+
+该规则源于一次实际缺陷：Windows 的 toast XML 构造逻辑此前位于平台 crate，导致「toast 文档被操作中心静默丢弃」的问题在 CI 中无法被发现。
 :::
 
 ### D-Bus mock

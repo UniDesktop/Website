@@ -32,6 +32,46 @@ XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_TYPE=wayland WAYLAND_DISPLAY=wayland-0 car
 
 No session bus means no portal, no DE IPC and no notifications. Wake locks and wallpaper cannot work either. This is degradation working as designed, not a bug.
 
+## Shared library
+
+### The shared library cannot be found
+
+**Symptom**: `UdaError: cannot find the UDA shared library`
+
+**Cause**: `uda-ffi` has not been built, or the target directory was redirected and the SDK does not look there.
+
+**Fix**:
+
+```bash
+cargo build -p uda-ffi
+# if that still fails, point at the artefact explicitly
+UDA_LIBRARY=$(find . -name 'libuda_ffi.so' | head -1) python3 examples/python/01_appearance.py
+```
+
+The SDK resolves in this order: an explicit `library_path` → the `UDA_LIBRARY` environment variable → the target directory reported by `cargo metadata` (including the debug/release and cross-compilation target subdirectories).
+
+## Wallpaper
+
+### `Feature not supported: Neither feh nor nitrogen`
+
+**Symptom**: `UdaError::Unsupported` whose message lists every CLI tool name.
+
+**Cause**: Tier 1 (the portal) and Tier 2 (GNOME/KDE/Hyprland/Sway IPC) are unavailable, and the Tier 3 `PATH` probe found none of the tools either.
+
+**Fix**: install any one of them, or move to a desktop that provides a portal:
+
+```bash
+sudo apt install feh        # Debian/Ubuntu
+sudo apt install nitrogen   # alternative
+```
+
+Query what the current environment can do:
+
+```rust
+let caps = manager.capabilities()?;
+caps.contains(Capability::SET_WALLPAPER)
+```
+
 ## System tray
 
 ### The icon never shows on Linux
@@ -105,7 +145,7 @@ A player that refuses a command (pausing an already-paused stream, `Next` when t
 
 ### `UDA_ERR_NOT_SUPPORTED` from `suspend()` / `hibernate()`
 
-The capability bit means "the code path exists", not "the machine is configured for it". A machine with hibernation switched off still reports `Capability::HIBERNATE`; the attempt then fails with a typed error. Query `capabilities()` before drawing the menu entry — and confirm with the user regardless.
+The capability bit means "the code path exists", not "the machine is configured for it". A machine with hibernation switched off still reports the corresponding bit; the attempt then fails with a typed error. Query `capabilities()` before drawing the menu entry — and confirm with the user regardless.
 
 ### Reboot or shutdown fails with a privilege error
 
@@ -123,6 +163,41 @@ Only `lock()` is safe to automate. The other five are irreversible; the library 
 cargo run -p uda-cli
 ```
 
+## The accent colour returns `None`
+
+**Cause**: KDE, XFCE and Wayland tilers have no system-wide accent-colour concept.
+
+**Fix**: this is a normal return value. Provide a fallback palette:
+
+```python
+accent = uda.accent_color or (0x33, 0x99, 0xFF, 0xFF)
+```
+
+## Icon channels are swapped (historical defect, fixed)
+
+**Symptom**: the tray icon's red and blue channels are swapped (blue renders as red).
+
+**Cause**: an early `IconPixmap` implementation arranged the bytes as A,R,G,B instead of the required B,G,R,A. Fixed in v0.2.0; see `docs/internals/tray_specs.md`.
+
+## Test commands
+
+```bash
+cargo test --workspace                       # all unit tests
+./scripts/test-linux-mock.sh                 # D-Bus mock fixture tests
+cargo check -p uda-platform-windows \
+  --target x86_64-pc-windows-gnu --all-targets   # cross-compilation check
+```
+
+D-Bus tests run inside a `dbus-run-session` with `python3-dbusmock` fixtures and need no real desktop environment.
+
+## Diagnostics CLI
+
+`crates/uda-cli` walks every subsystem and prints the outcome plus the tier that answered. It is the fastest way to see what the current session actually supports:
+
+```bash
+cargo run -p uda-cli
+```
+
 ## Reporting a bug
 
 Include, in this order:
@@ -131,3 +206,10 @@ Include, in this order:
 2. The diagnostic message from `uda_last_error_message()` / `UdaError.message`.
 3. `XDG_CURRENT_DESKTOP`, `XDG_SESSION_TYPE`, the desktop and version, and whether you are on Wayland or X11.
 4. The tier that answered, if the log line is visible (`log::debug!` is enabled for every backend handoff).
+
+## See also
+
+- [Platform support](/en/reference/platform-support/) — per-desktop coverage
+- [Capability and fallback](/en/guides/capability-and-fallback/) — querying capabilities and the tier chain
+- [Session & power lifecycle](/en/guides/session/) — session capability bits and per-platform backends
+- [System tray](/en/guides/tray/) — the threading model and lifecycle

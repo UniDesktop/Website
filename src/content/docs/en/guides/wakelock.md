@@ -46,17 +46,26 @@ Releasing a handle that was never issued by this process, or one already release
 
 ## Backends
 
-| Platform | Display | System |
-|---|---|---|
-| Linux (Tier 1) | `org.freedesktop.ScreenSaver.Inhibit` | same, with the idle flag |
-| Linux (Tier 2) | XDG Inhibit portal | same |
-| Windows | `SetThreadExecutionState(ES_DISPLAY_REQUIRED)` | `ES_SYSTEM_REQUIRED` |
+| Platform | Mechanism |
+|---|---|
+| Linux | `org.freedesktop.ScreenSaver.Inhibit` on the session bus; the display lock passes flag `8` (idle) and the system lock `12` (idle + suspend). Release calls `UnInhibit` with the cookie the daemon returned |
+| Windows | `SetThreadExecutionState`: `ES_CONTINUOUS \| ES_DISPLAY_REQUIRED` for the display lock, plus `ES_SYSTEM_REQUIRED` for the system lock. Release restores the default `ES_CONTINUOUS` |
+
+There is no further fallback tier: on Linux the ScreenSaver service is the only backend, and on Windows `SetThreadExecutionState` is always available. When the session bus is unreachable the call fails with a typed error.
+
+:::note[Windows state is process-wide]
+`SetThreadExecutionState` is process-wide state on the calling thread rather than a reference-counted handle — each call *replaces* the previous flags. UDA therefore exposes one lock at a time as an intentional single-lock design, and releasing restores the default `ES_CONTINUOUS` for the whole process.
+:::
 
 Note that a wake lock only **inhibits** the automatic idle behaviour; it does not prevent the user from locking the session or pressing the power button.
 
 ## Choosing `reason`
 
 The reason string is passed to the platform for logging and diagnostics — a screensaver that shows what is holding it awake, or a Windows power-request trace. Keep it short and human-readable; it is never shown to the user as a notification.
+
+## Handle semantics
+
+The C-ABI returns a `uint64_t` handle, where `0` is not a valid value. Releasing an unknown or already-released handle returns `UDA_ERR_INVALID_ARGUMENT` rather than a silent success, so a host discovers its own double-release bug.
 
 ## See also
 

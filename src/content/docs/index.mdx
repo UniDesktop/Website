@@ -1,0 +1,75 @@
+---
+title: UniDesktop API (UDA)
+description: 用一套类型安全的 Rust API 统一碎片化的 Linux 桌面环境与 Windows。
+template: splash
+hero:
+  tagline: 用一套类型安全的 Rust API，把应用接入原生桌面。
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: 快速开始
+      link: /getting-started/installation/
+      icon: right-arrow
+    - text: API 参考
+      link: /reference/c-abi/
+      icon: document
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## 项目定位
+
+开发跨平台桌面应用时，同一功能通常需要为每个平台分别实现：Windows 上调用 `SystemParametersInfoW`，Linux 上则分别使用 `gsettings`、`qdbus`、`swww`、`hyprpaper`。各实现的失败模式与会话假设互不相同，且缺少统一的类型系统。
+
+UDA 以一套**能力驱动（capability-driven）**的 Rust API 统一这些差异：探测运行环境、选择可用后端、按能力降级，避免在不可用环境下直接失败。
+
+<CardGrid>
+  <Card title="Portal 优先" icon="rocket">
+    所有 Linux 功能都先尝试 XDG Desktop Portal，再回落到发行版特定方案。
+  </Card>
+  <Card title="级联回退" icon="random">
+    严格的层级链：Portal → 原生桌面环境 IPC → CLI 工具 → 强类型 `UdaError::Unsupported`。
+  </Card>
+  <Card title="能力驱动" icon="magnifier">
+    功能主动上报 `SupportLevel::Full` / `Restricted` / `Unsupported`，让你的应用在出错前就能分流。
+  </Card>
+  <Card title="零重型依赖" icon="puzzle">
+    Linux 侧为纯 Rust `zbus`，Windows 侧为 `windows-rs`。不依赖 Qt、GTK 或任何打包工具箱。
+  </Card>
+</CardGrid>
+
+## 三大入口
+
+| 入口 | 适用场景 |
+|------|----------|
+| Rust crate | 原生 Rust 应用，直接用 `AppearanceManager`、`TrayManager` 等 trait |
+| C-ABI (`include/uda.h`) | C/C++、或需要稳定 ABI 的场景 |
+| Python / Node.js SDK | `examples/python/uda.py`（ctypes）与 `examples/nodejs/uda.js`（koffi），零原生编译步骤 |
+
+## 当前版本能力
+
+v0.2.0 包含以下模块：深浅色外观检测、壁纸管理、原生通知、防休眠锁、**系统托盘**、**媒体播控**、**会话与电源生命周期**（锁屏、注销、睡眠、休眠、重启、关机）。
+
+各功能在不同桌面环境下的支持情况见[平台支持矩阵](/reference/platform-support/)。
+
+## 从何处开始
+
+<CardGrid>
+  <Card title="安装" icon="down-caret">
+    按宿主语言列出的前置条件与获取方式。[打开](/getting-started/installation/)
+  </Card>
+  <Card title="第一个桌面能力" icon="star">
+    十行代码检测主题并发送一条通知。[打开](/getting-started/hello-desktop/)
+  </Card>
+  <Card title="能力与降级" icon="magnifier">
+    `SupportLevel` 三态、四级降级链，以及如何在调用前查询。[打开](/guides/capability-and-fallback/)
+  </Card>
+  <Card title="故障排查" icon="warning">
+    按模块列出的症状、原因与处置。[打开](/guides/troubleshooting/)
+  </Card>
+</CardGrid>
+
+:::tip[英文文档]
+英文内容与本页逐页对应：<a href="/en/">English documentation</a>。
+:::

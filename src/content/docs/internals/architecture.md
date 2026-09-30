@@ -74,7 +74,7 @@ uda-cli ──▶ uda-core + uda-platform-linux
 
 `uda-core` 不引入 Qt、GTK 或任何 GUI 工具箱。Linux 侧用纯 Rust `zbus` 而非 `libdbus` 的 C 绑定；Windows 侧用官方 `windows-rs`。这让库可以作为依赖嵌入任何现有应用而不带入庞大的原生依赖树。
 
-## 为什么托盘要在 core 持有逻辑
+## 托盘状态机归属 core 的原因
 
 托盘的状态机（菜单行 id 分配、复选框语义、图标来源校验、可见性同步）全部在 `uda-core`，平台 crate 只负责「如何画到屏幕上」。原因：
 

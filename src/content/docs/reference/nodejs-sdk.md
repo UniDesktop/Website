@@ -18,7 +18,13 @@ const { Uda } = require('./uda');
 const uda = new Uda();
 ```
 
-库解析顺序同 Python：`UDA_LIBRARY` 环境变量 → `cargo metadata` 报告的 target 目录 → 平台默认名（`libuda_ffi.so` / `uda_ffi.dll`）。
+库解析顺序：构造参数 `libraryPath`（位置参数）→ `UDA_LIBRARY` 环境变量 → `cargo metadata` 报告的 target 目录（含各交叉编译 target 子目录）→ 仓库内 `target/` → 平台默认名（`libuda_ffi.so` / `uda_ffi.dll`）。
+
+自动查找失败时显式传入路径：
+
+```javascript
+const uda = new Uda('/abs/path/libuda_ffi.so');
+```
 
 ## 常量对象
 
@@ -61,9 +67,12 @@ uda.notify('标题', '正文', {
 
 | 成员 | 类型 |
 |------|------|
-| `nowPlaying` | `{title, artists[], album, durationMs} \| null` getter |
-| `status` | `string` getter |
+| `nowPlaying` | `{title, artist, album, durationMs, positionMs} \| null` getter |
+| `status` | `'playing'` / `'paused'` / `'stopped'` / `'unknown'` getter |
 | `send(command)` | 方法，接受指令名字符串 |
+| `play()` / `pause()` / `playPause()` / `next()` / `previous()` / `stop()` | 便捷方法 |
+
+`nowPlaying` 的 `title` / `artist` / `album` 为字符串，播放器未发布时为 `''`；`durationMs` 与 `positionMs` 为 `number`，未发布时为 `0`。元数据全空时归一为 `null`，与「没有播放器」不可区分。`status` 的 `unknown` 同时覆盖「没有播放器」与「状态无法判定」，两者都不是错误。
 
 ## `SessionController`
 
@@ -89,10 +98,16 @@ uda.notify('标题', '正文', {
 
 | 成员 | 说明 |
 |------|------|
-| `addText(label, callback)` | 文本项 |
-| `addCheckbox(label, checked, callback)` | 复选框，回调接收新状态 |
+| `addText(label, callback)` | 文本项；返回该行稳定且非零的 `itemId`（`BigInt`） |
+| `addCheckbox(label, checked, callback)` | 复选框；返回 `itemId` |
 | `addSeparator()` | 分隔线 |
 | `destroy()` | 销毁 |
+
+回调签名：文本项为 `(itemId) => …`，复选框为 `(itemId, checked) => …`，其中 `checked` 是点击**之后**的状态。`callback` 可为 `null`，表示静默行。文本行为空串时库返回 `UDA_ERR_NOT_SUPPORTED`。
+
+图标可以是 `.png` 文件：SDK 读取文件后经内置的纯 Node（基于 `zlib`）PNG 解码器解码并提交 RGBA——Linux 的 `StatusNotifierItem` 把 `Path` 解释为 freedesktop 图标**主题名**，直接传文件路径什么都看不到。图像在提交前按最长边 32 px 降采样，并做 alpha 预乘的面积平均，避免透明边缘出现黑边。
+
+回调运行在托盘工作线程上，必须尽快返回，且不得阻塞事件循环——请转入自己的异步任务。
 
 ## `WakeLock`
 

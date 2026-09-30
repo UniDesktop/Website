@@ -18,11 +18,11 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Why UDA
+## Scope
 
-Shipping a cross-platform desktop app today means writing the same feature five times: `SystemParametersInfoW` on Windows, then `gsettings`, `qdbus`, `swww` and `hyprpaper` on Linux — each with its own failure modes, session assumptions, and no shared type system.
+Shipping a cross-platform desktop app today means writing the same feature several times: `SystemParametersInfoW` on Windows, then `gsettings`, `qdbus`, `swww` and `hyprpaper` on Linux — each with its own failure modes, session assumptions, and no shared type system.
 
-UDA replaces that fragmentation with one **capability-driven** Rust API: it probes the environment, picks the working backend, and degrades gracefully instead of panicking.
+UDA replaces that fragmentation with one **capability-driven** Rust API: it probes the environment, selects an available backend, and degrades gracefully instead of failing.
 
 <CardGrid>
   <Card title="Portal-first" icon="rocket">
@@ -47,11 +47,11 @@ UDA replaces that fragmentation with one **capability-driven** Rust API: it prob
 | C-ABI (`include/uda.h`) | C/C++, or anywhere a stable ABI matters |
 | Python / Node.js SDKs | `examples/python/uda.py` (ctypes) and `examples/nodejs/uda.js` (koffi) — no native build step |
 
-## Shipped in v0.2.0
+## Version 0.2.0
 
-Light/dark appearance detection with live system-follow support · wallpaper management with fill modes, multi-monitor targeting and dark/light pairing · native notifications with icons, urgency and actions · keep-awake locks · **system tray** with a cross-platform menu model · **media control** with metadata read and playback commands · **session & power lifecycle** (lock, logout, suspend, hibernate, reboot, shutdown).
+The 0.2.0 release covers: light/dark appearance detection, wallpaper management with fill modes and multi-monitor targeting, native notifications with icons, urgency and actions, keep-awake locks, **system tray** with a cross-platform menu model, **media control** with metadata read and playback commands, and **session & power lifecycle** (lock, logout, suspend, hibernate, reboot, shutdown).
 
-See the [platform support matrix](/en/reference/platform-support/).
+Per-desktop coverage is listed in the [platform support matrix](/en/reference/platform-support/).
 
 ## Where to start
 
@@ -71,5 +71,5 @@ See the [platform support matrix](/en/reference/platform-support/).
 </CardGrid>
 
 :::tip[Chinese documentation]
-The Chinese tree mirrors this site page for page: <a href="/zh-cn/">中文文档</a>.
+The Chinese tree mirrors this site page for page: <a href="/">中文文档</a>.
 :::

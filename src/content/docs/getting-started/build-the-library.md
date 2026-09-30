@@ -25,6 +25,8 @@ cargo build -p uda-ffi --release --target x86_64-pc-windows-gnu
 
 `crates/uda-platform-windows` 整 crate 以 `#![cfg(windows)]` 门控，因此在 Linux 上执行 `cargo check --workspace` 不会编译它，宿主编译永不被打断。
 
+`crates/uda-platform-windows` 整 crate 以 `#![cfg(windows)]` 门控，因此在 Linux 上执行 `cargo check --workspace` 不会编译它，宿主编译永不被打断。该门控也是交叉编译检查必须进入 CI 的原因：缺少它，Windows 侧的编译错误将无人发现。
+
 ## target 目录在哪里
 
 SDK 通过 `cargo metadata` 查询**真实**的 target 目录，而不是硬编码 `./target`。这让你可以把它重定向到别处（例如为了性能放到另一块磁盘）：
@@ -62,6 +64,22 @@ with Uda(library_path="/opt/uda/libuda_ffi.so") as uda:
     print(uda.theme)
 ```
 
+## 验证构建结果
+
+```bash
+cargo run -p uda-cli
+```
+
+诊断 CLI 会按子系统报告最终应答的后端，这也是确认库能从实际构建目录加载的最快方式。
+
+## 工作区产物
+
+| 产物 | 使用者 |
+|------|--------|
+| `libuda_ffi.so` / `uda_ffi.dll` | Python（`ctypes`）、Node.js（`koffi`）、任意 C 宿主 |
+| Rust crates | 直接使用 trait 的原生 Rust 应用 |
+| `uda-cli` | 开发者人工诊断 |
+
 ## 导出符号校验（Windows）
 
 Windows 上 C-ABI 依赖 `#[no_mangle]` 导出，可用仓库自带脚本核对 DLL 导出的 C 符号集合：
@@ -69,3 +87,10 @@ Windows 上 C-ABI 依赖 `#[no_mangle]` 导出，可用仓库自带脚本核对 
 ```bash
 python3 scripts/pe_exports.py path/to/uda_ffi.dll
 ```
+
+期望的符号清单由脚本从 `include/uda.h` 的声明派生，而不是硬编码的数量——新增导出函数不需要同步修改 CI。
+
+## 下一步
+
+- [安装](/getting-started/installation/)——各宿主语言的前置条件
+- [第一个桌面能力](/getting-started/hello-desktop/)——最小可用示例
