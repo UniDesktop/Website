@@ -16,7 +16,11 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'UniDesktop API',
-			favicon: '/public/favicon.png',
+			// Paths are resolved against the site root, not the project root.
+			// `public/favicon.png` is copied verbatim to `<dist>/favicon.png`, so
+			// the URL is `/favicon.png`; writing `/public/favicon.png` here makes
+			// every page request a file that does not exist.
+			favicon: '/favicon.png',
 			logo: {
 				src: './src/assets/houston.webp',
 			},

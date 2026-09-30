@@ -17,12 +17,6 @@ concurrency:
   group: 'pages'
   cancel-in-progress: false
 
-defaults:
-  run:
-    # The site lives in ./Website; every `run` step starts there so the
-    # commands read like the ones in the README.
-    working-directory: ./Website
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,21 +24,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # 如果开启了 Starlight 的最后更新时间（lastUpdated）功能，需要拉取完整 Git 历史
+          # Starlight's "last updated" timestamps come from the git history, so
+          # the full log is needed rather than a shallow single-commit clone.
           fetch-depth: 0
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # The site lives at the repository root, so `package-lock.json` (and
+      # `package.json`) sit directly in the checkout with no subdirectory
+      # prefix. Both are tracked, which is why the cache path resolves.
+      #
+      # An earlier revision prefixed every path with `./Website`; no such
+      # directory exists in this repository, so setup-node aborted with
+      # "Some specified paths were not resolved, unable to cache
+      # dependencies" before the build ever started.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: ./Website/package-lock.json
+          cache-dependency-path: package-lock.json
 
+      # `npm ci` requires the lockfile to match package.json exactly. The
+      # fallback keeps a deploy from being blocked when the lockfile is absent;
+      # it is present here, so the reproducible path is the one that runs.
       - name: Install dependencies
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "::warning::package-lock.json is absent; running npm install instead of npm ci"
+            npm install
+          fi
 
       - name: Build the site
         run: npm run build
@@ -66,13 +78,13 @@ jobs:
       # second explicit upload in this workflow, both defaulted to the artifact
       # name `github-pages`, and the run failed with a non-retryable
       # "an artifact with this name already exists on the workflow run" (409).
-      # Only one artifact per run is allowed, so the build is now spelled out
-      # here and this is the single upload.
+      # Only one artifact per run is allowed, so the build is spelled out above
+      # and this is the single upload.
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           name: github-pages
-          path: ./Website/dist
+          path: ./dist
 
   deploy:
     environment:
