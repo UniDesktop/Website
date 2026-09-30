@@ -10,9 +10,18 @@ permissions:
   pages: write
   id-token: write
 
+# Only one Pages deployment may run at a time. Queuing instead of cancelling
+# keeps a push that lands during a deploy from cancelling the run that is
+# currently publishing.
 concurrency:
   group: 'pages'
   cancel-in-progress: false
+
+defaults:
+  run:
+    # The site lives in ./Website; every `run` step starts there so the
+    # commands read like the ones in the README.
+    working-directory: ./Website
 
 jobs:
   build:
@@ -24,30 +33,46 @@ jobs:
           # 如果开启了 Starlight 的最后更新时间（lastUpdated）功能，需要拉取完整 Git 历史
           fetch-depth: 0
 
-      - name: Install, build, and upload Astro site
-        uses: withastro/action@v3
-        with:
-          package-manager: npm
-          node-version: 22
-
-      # GitHub Pages used to run everything through Jekyll. A Jekyll build
-      # ignores files and directories whose name starts with `_`, which is
-      # exactly how Astro names its asset directory (`_astro/`) — the site then
-      # renders with no CSS and no scripts. An empty `.nojekyll` file at the
-      # root of the artifact tells Pages to serve the files as-is.
-      - name: Disable Jekyll processing
-        run: touch dist/.nojekyll
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Publishing the artifact explicitly (rather than letting
-      # `withastro/action` do it) makes `path` visible here, so the artifact
-      # always contains the Astro output root and nothing else.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ./Website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the site
+        run: npm run build
+
+      # GitHub Pages used to run everything through Jekyll, and a Jekyll build
+      # ignores files and directories whose name starts with `_` — exactly how
+      # Astro names its asset directory (`_astro/`). Without this marker the
+      # site renders with no CSS and no scripts.
+      #
+      # The marker must exist *before* the upload: `upload-pages-artifact`
+      # archives whatever is in `path` at that moment and never rebuilds it.
+      - name: Disable Jekyll processing
+        run: touch dist/.nojekyll
+
+      # One upload, with the artifact name stated explicitly.
+      #
+      # `withastro/action` used to do the install-and-build here, but its last
+      # step is itself an `actions/upload-pages-artifact` call. Combined with a
+      # second explicit upload in this workflow, both defaulted to the artifact
+      # name `github-pages`, and the run failed with a non-retryable
+      # "an artifact with this name already exists on the workflow run" (409).
+      # Only one artifact per run is allowed, so the build is now spelled out
+      # here and this is the single upload.
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          name: github-pages
+          path: ./Website/dist
 
   deploy:
     environment:
