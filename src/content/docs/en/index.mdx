@@ -1,40 +1,75 @@
 ---
-title: United Desktop Association
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: UniDesktop API (UDA)
+description: Unify fragmented Linux desktop environments and Windows behind one type-safe Rust API.
+template: splash
 hero:
-  tagline: Devoted to promoting the uniformity and standardization of the desktop environment of the operating system, and providing comprehensive support and assistance for various desktop applications.
+  tagline: Desktop-enable your app with one type-safe Rust API.
   image:
     file: ../../../assets/houston.webp
   actions:
-    - text: Connect to the SDK
-      link: /en/guides/example/
+    - text: Get started
+      link: /en/getting-started/installation/
       icon: right-arrow
-    - text: View on GitHub
-      link: https://github.com/UniDesktop
-      icon: external
+    - text: API reference
+      link: /en/reference/c-abi/
+      icon: document
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+## Why UDA
 
-<CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
-	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
+Shipping a cross-platform desktop app today means writing the same feature five times: `SystemParametersInfoW` on Windows, then `gsettings`, `qdbus`, `swww` and `hyprpaper` on Linux — each with its own failure modes, session assumptions, and no shared type system.
+
+UDA replaces that fragmentation with one **capability-driven** Rust API: it probes the environment, picks the working backend, and degrades gracefully instead of panicking.
+
+<CardGrid>
+  <Card title="Portal-first" icon="rocket">
+    Every Linux feature tries the XDG Desktop Portal before touching anything distro-specific.
+  </Card>
+  <Card title="Cascading fallback" icon="random">
+    A strict tier chain: Portal → native DE IPC → CLI tools → a strongly typed `UdaError::Unsupported`.
+  </Card>
+  <Card title="Capability-driven" icon="magnifier">
+    Features advertise `SupportLevel::Full` / `Restricted` / `Unsupported`, so your app can branch before it breaks.
+  </Card>
+  <Card title="Zero heavy dependencies" icon="puzzle">
+    Pure Rust `zbus` on Linux, `windows-rs` on Windows. No Qt, no GTK, no bundled toolkit.
+  </Card>
 </CardGrid>
+
+## Three entry points
+
+| Entry point | Use it for |
+|---|---|
+| Rust crates | Native Rust apps — use the `AppearanceManager`, `TrayManager`, … traits directly |
+| C-ABI (`include/uda.h`) | C/C++, or anywhere a stable ABI matters |
+| Python / Node.js SDKs | `examples/python/uda.py` (ctypes) and `examples/nodejs/uda.js` (koffi) — no native build step |
+
+## Shipped in v0.2.0
+
+Light/dark appearance detection with live system-follow support · wallpaper management with fill modes, multi-monitor targeting and dark/light pairing · native notifications with icons, urgency and actions · keep-awake locks · **system tray** with a cross-platform menu model · **media control** with metadata read and playback commands · **session & power lifecycle** (lock, logout, suspend, hibernate, reboot, shutdown).
+
+See the [platform support matrix](/en/reference/platform-support/).
+
+## Where to start
+
+<CardGrid>
+  <Card title="Installation" icon="down-caret">
+    Prerequisites and install paths for Rust, Python, Node.js and C hosts. [Open](/en/getting-started/installation/)
+  </Card>
+  <Card title="Hello, desktop" icon="star">
+    Ten lines to detect the theme and send a notification. [Open](/en/getting-started/hello-desktop/)
+  </Card>
+  <Card title="Capability & fallback" icon="magnifier">
+    The tri-state `SupportLevel`, the four-tier chain, and how to query before you branch. [Open](/en/guides/capability-and-fallback/)
+  </Card>
+  <Card title="Troubleshooting" icon="warning">
+    Every symptom, cause and fix, in triage order. [Open](/en/guides/troubleshooting/)
+  </Card>
+</CardGrid>
+
+:::tip[Chinese documentation]
+The Chinese tree mirrors this site page for page: <a href="/zh-cn/">中文文档</a>.
+:::

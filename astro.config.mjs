@@ -4,9 +4,11 @@ import starlight from '@astrojs/starlight';
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://unidesktop.github.io',
+	base: '/Website/',
 	integrations: [
 		starlight({
-			title: 'United Desktop Association',
+			title: 'UniDesktop API',
 			favicon: '/public/favicon.png',
 			logo: {
 				src: './src/assets/houston.webp',
@@ -15,14 +17,19 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: 'Guides',
-					items: [
-						// Each item here is one entry in the navigation menu.
-						{ label: 'Example Guide', slug: 'guides/example' },
-					],
+					items: [{ autogenerate: { directory: 'guides' } }],
 				},
 				{
 					label: 'Reference',
 					items: [{ autogenerate: { directory: 'reference' } }],
+				},
+				{
+					label: 'Getting started',
+					items: [{ autogenerate: { directory: 'getting-started' } }],
+				},
+				{
+					label: 'Internals',
+					items: [{ autogenerate: { directory: 'internals' } }],
 				},
 			],
 			defaultLocale: 'zh-cn',
